@@ -1,0 +1,24 @@
+#!/usr/bin/env python3
+"""
+Git pre-commit hook that runs the repository redaction script.
+This file lives in .githooks so it can be committed. To enable hooks, run:
+
+  git config core.hooksPath .githooks
+
+The hook simply runs the Python helper and exits with its return code.
+"""
+
+import os
+import sys
+
+hook_script = os.path.join(os.path.dirname(__file__), '..', 'scripts', 'pre_commit_redact.py')
+hook_script = os.path.normpath(hook_script)
+
+# Try to invoke Python on the script. Rely on the system's Python interpreter.
+rc = os.system(f'"{sys.executable}" "{hook_script}"')
+# os.system returns exit code shifted on Windows for certain shells, but using it is
+# simple and cross-platform here. Normalize to 0/1.
+if rc != 0:
+    # If non-zero, write a message and exit non-zero to block commit
+    sys.exit(rc >> 8 if rc > 255 else rc)
+sys.exit(0)
