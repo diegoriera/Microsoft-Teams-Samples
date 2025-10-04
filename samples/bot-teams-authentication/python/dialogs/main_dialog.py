@@ -11,13 +11,10 @@ from botbuilder.dialogs import (
 from botbuilder.dialogs.prompts import OAuthPrompt, OAuthPromptSettings, ConfirmPrompt
 
 from dialogs import LogoutDialog
-import logging
-# Set the logging level to INFO
-logging.basicConfig(level=logging.INFO)
+
 
 class MainDialog(LogoutDialog):
     def __init__(self, connection_name: str):
-        # Initializes the MainDialog with OAuthPrompt, ConfirmPrompt, and WaterfallDialog.
         super(MainDialog, self).__init__(MainDialog.__name__, connection_name)
 
         self.add_dialog(
@@ -27,8 +24,8 @@ class MainDialog(LogoutDialog):
                     connection_name=connection_name,
                     text="Please Sign In",
                     title="Sign In",
-                    timeout=300000
-                )
+                    timeout=300000,
+                ),
             )
         )
 
@@ -48,15 +45,13 @@ class MainDialog(LogoutDialog):
 
         self.initial_dialog_id = "WFDialog"
 
-    # Prompts the user to sign in using the OAuthPrompt.
     async def prompt_step(self, step_context: WaterfallStepContext) -> DialogTurnResult:
-        logging.info("Reached OAuthPrompt step — prompting for login.")
         return await step_context.begin_dialog(OAuthPrompt.__name__)
 
-    # Handles the login result and optionally prompts to display the token.
     async def login_step(self, step_context: WaterfallStepContext) -> DialogTurnResult:
-        if step_context.result and step_context.result.token:
-            logging.info("Login Step Reached — Successfully Logged In")
+        # Get the token from the previous step. Note that we could also have gotten the
+        # token directly from the prompt itself. There is an example of this in the next method.
+        if step_context.result:
             await step_context.context.send_activity("You are now logged in.")
             return await step_context.prompt(
                 ConfirmPrompt.__name__,
@@ -65,13 +60,11 @@ class MainDialog(LogoutDialog):
                 ),
             )
 
-        # Handles invalid actions or cancelled login
         await step_context.context.send_activity(
-            "Login was not successful or was cancelled. Let's try again."
+            "Login was not successful please try again."
         )
-        return await step_context.replace_dialog(self.initial_dialog_id)
+        return await step_context.end_dialog()
 
-    # Re-prompts for OAuth token if the user wants to view it.
     async def display_token_phase1(
         self, step_context: WaterfallStepContext
     ) -> DialogTurnResult:
@@ -90,13 +83,21 @@ class MainDialog(LogoutDialog):
 
         return await step_context.end_dialog()
 
-    # Displays the token to the user if they confirmed.
     async def display_token_phase2(
         self, step_context: WaterfallStepContext
     ) -> DialogTurnResult:
         if step_context.result:
-            await step_context.context.send_activity(
-                f"Here is your token {step_context.result.token}"
-            )
+            # Create message with feedback buttons enabled
+            message_text = f"Here is your token {step_context.result.token}"
+            
+            # Create activity with feedback buttons enabled
+            feedback_activity = MessageFactory.text(message_text)
+            feedback_activity.channel_data = {
+                "feedbackLoop": {
+                    "type": "default"  # Use default feedback form
+                }
+            }
+            
+            await step_context.context.send_activity(feedback_activity)
 
         return await step_context.end_dialog()
